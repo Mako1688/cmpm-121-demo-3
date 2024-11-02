@@ -1,4 +1,5 @@
-// todo
+// Marco Ogaz-Vega
+// CMPM 121
 
 // Create a button element
 const button = document.createElement("button");
