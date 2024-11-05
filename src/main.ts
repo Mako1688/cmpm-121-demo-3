@@ -14,24 +14,32 @@ import { Board } from "./board.ts";
 import { Geocache } from "./geocache.ts";
 import luck from "./luck.ts";
 
+// Constants
+const PLAYER_LAT = 36.9895;
+const PLAYER_LNG = -122.0628;
+const MAP_ZOOM_LEVEL = 15;
+const TILE_WIDTH = 0.0001;
+const TILE_VISIBILITY_RADIUS = 8;
+const CACHE_PROBABILITY = 0.1;
+const COIN_SCALE_FACTOR = 11;
+const PLAYER_MOVE_OFFSET = 0.00005;
+
 // Initialize the map
-const playerLat = 36.9895;
-const playerLng = -122.0628;
-const map = L.map("map").setView([playerLat, playerLng], 15);
+const map = L.map("map").setView([PLAYER_LAT, PLAYER_LNG], MAP_ZOOM_LEVEL);
 
 // Add a tile layer to the map
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "&copy; OpenStreetMap contributors",
 }).addTo(map);
 
-const board = new Board(0.0001, 8);
+const board = new Board(TILE_WIDTH, TILE_VISIBILITY_RADIUS);
 
 // Add player marker
-const playerMarker = L.marker([playerLat, playerLng])
+const playerMarker = L.marker([PLAYER_LAT, PLAYER_LNG])
   .addTo(map)
   .bindPopup("Player");
 
-const playerPosition = { lat: playerLat, lng: playerLng };
+const playerPosition = { lat: PLAYER_LAT, lng: PLAYER_LNG };
 let playerCoins = 0;
 const caches: Map<string, Geocache> = new Map();
 const cacheMarkers: Map<string, L.Marker> = new Map();
@@ -39,7 +47,7 @@ const cacheMarkers: Map<string, L.Marker> = new Map();
 // Function to spawn a cache
 function spawnCache(i: number, j: number): void {
   const luckValue = luck(`${i},${j}`);
-  const numCoins = Math.floor(Math.pow(luckValue, 0.5) * 11); // Apply power transformation and generate between 0 and 10 coins
+  const numCoins = Math.floor(Math.pow(luckValue, 0.5) * COIN_SCALE_FACTOR); // Apply power transformation and generate between 0 and 10 coins
   console.log(
     `Cache at (${i}, ${j}) with luck value ${luckValue} has ${numCoins} coins`,
   );
@@ -137,15 +145,14 @@ function updateAllCacheMarkers() {
 }
 
 // Generate cache locations
-const originCell = board.getCellForPoint(L.latLng(playerLat, playerLng));
+const originCell = board.getCellForPoint(L.latLng(PLAYER_LAT, PLAYER_LNG));
 const { i: originI, j: originJ } = originCell;
 
-for (let di = -8; di <= 8; di++) {
-  for (let dj = -8; dj <= 8; dj++) {
+for (let di = -TILE_VISIBILITY_RADIUS; di <= TILE_VISIBILITY_RADIUS; di++) {
+  for (let dj = -TILE_VISIBILITY_RADIUS; dj <= TILE_VISIBILITY_RADIUS; dj++) {
     const i = originI + di;
     const j = originJ + dj;
-    if (luck([i, j].toString()) < 0.1) {
-      // 10% probability
+    if (luck([i, j].toString()) < CACHE_PROBABILITY) {
       spawnCache(i, j);
     }
   }
@@ -154,16 +161,16 @@ for (let di = -8; di <= 8; di++) {
 // Bind control buttons to functions
 document
   .getElementById("move-up")
-  ?.addEventListener("click", () => movePlayer(0.00005, 0));
+  ?.addEventListener("click", () => movePlayer(PLAYER_MOVE_OFFSET, 0));
 document
   .getElementById("move-down")
-  ?.addEventListener("click", () => movePlayer(-0.00005, 0));
+  ?.addEventListener("click", () => movePlayer(-PLAYER_MOVE_OFFSET, 0));
 document
   .getElementById("move-left")
-  ?.addEventListener("click", () => movePlayer(0, -0.00005));
+  ?.addEventListener("click", () => movePlayer(0, -PLAYER_MOVE_OFFSET));
 document
   .getElementById("move-right")
-  ?.addEventListener("click", () => movePlayer(0, 0.00005));
+  ?.addEventListener("click", () => movePlayer(0, PLAYER_MOVE_OFFSET));
 
 // Expose functions to the global scope for popup buttons
 (globalThis as unknown as Window).pickUpCoins = pickUpCoins;
