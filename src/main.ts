@@ -1,9 +1,14 @@
 // Extend the Window interface to include our functions
 declare global {
   interface Window {
-    pickUpCoins: (i: number, j: number) => void;
-    dropOffCoins: (i: number, j: number) => void;
+    pickUpCoin: (i: number, j: number, serial: number) => void;
+    dropCoin: (i: number, j: number, serial: number) => void;
   }
+}
+
+interface GlobalThis {
+  pickUpCoin: (i: number, j: number, serial: number) => void;
+  dropCoin: (i: number, j: number, serial: number) => void;
 }
 
 // Marco Ogaz-Vega
@@ -11,7 +16,7 @@ declare global {
 
 import L from "leaflet";
 import { Board } from "./board.ts";
-import { Geocache } from "./geocache.ts";
+import { Coin, Geocache } from "./geocache.ts";
 import luck from "./luck.ts";
 
 // Constants
@@ -40,7 +45,7 @@ const playerMarker = L.marker([PLAYER_LAT, PLAYER_LNG])
   .bindPopup("Player");
 
 const playerPosition = { lat: PLAYER_LAT, lng: PLAYER_LNG };
-let playerCoins = 0;
+const playerCoins: Coin[] = [];
 const caches: Map<string, Geocache> = new Map();
 const cacheMarkers: Map<string, L.Marker> = new Map();
 
@@ -66,14 +71,20 @@ function spawnCache(i: number, j: number): void {
 // Function to get popup content
 function getPopupContent(i: number, j: number): string {
   const cache = caches.get(`${i},${j}`);
-  let content = `Cache at (${i}, ${j}) with ${cache?.numCoins ?? 0} coins<br>`;
-  if (cache && cache.numCoins > 0 && isPlayerAtCache(i, j)) {
-    content +=
-      `<button onclick="window.pickUpCoins(${i}, ${j})">Pick Up Coins</button><br>`;
+  let content = `Cache at (${i}, ${j}) with ${
+    cache?.coins.length ?? 0
+  } coins<br>`;
+  if (cache && cache.coins.length > 0 && isPlayerAtCache(i, j)) {
+    cache.coins.forEach((coin) => {
+      content +=
+        `<button onclick="window.pickUpCoin(${i}, ${j}, ${coin.serial})">Pick Up Coin ${coin.i}:${coin.j}#${coin.serial}</button><br>`;
+    });
   }
-  if (playerCoins > 0 && isPlayerAtCache(i, j)) {
-    content +=
-      `<button onclick="window.dropOffCoins(${i}, ${j})">Drop Off Coins</button>`;
+  if (playerCoins.length > 0 && isPlayerAtCache(i, j)) {
+    playerCoins.forEach((coin) => {
+      content +=
+        `<button onclick="window.dropCoin(${i}, ${j}, ${coin.serial})">Drop Coin ${coin.i}:${coin.j}#${coin.serial}</button><br>`;
+    });
   }
   console.log(`Popup content for cache at (${i}, ${j}): ${content}`);
   return content;
@@ -98,33 +109,44 @@ function movePlayer(latOffset: number, lngOffset: number) {
   updateAllCacheMarkers();
 }
 
-// Function to pick up coins
-function pickUpCoins(i: number, j: number) {
+// Function to pick up a coin
+function pickUpCoin(i: number, j: number, serial: number) {
   const cache = caches.get(`${i},${j}`);
-  if (cache && cache.numCoins > 0) {
-    playerCoins += cache.numCoins;
-    alert(
-      `Picked up ${cache.numCoins} coins. You now have ${playerCoins} coins.`,
-    );
-    cache.numCoins = 0;
-    updateCacheMarker(i, j);
+  if (cache) {
+    const coin = cache.pickUpCoin(serial);
+    if (coin) {
+      playerCoins.push(coin);
+      alert(
+        `Picked up coin ${coin.i}:${coin.j}#${serial}. You now have ${playerCoins.length} coins.`,
+      );
+      updateCacheMarker(i, j);
+      updateInventory();
+    } else {
+      alert("Coin not found.");
+    }
   } else {
-    alert("No coins to pick up here.");
+    alert("No cache found.");
   }
 }
 
-// Function to drop off coins
-function dropOffCoins(i: number, j: number) {
+// Function to drop a coin
+function dropCoin(i: number, j: number, serial: number) {
   const cache = caches.get(`${i},${j}`);
   if (cache) {
-    cache.numCoins += playerCoins;
-    alert(
-      `Dropped off ${playerCoins} coins. Cache now has ${cache.numCoins} coins.`,
-    );
-    playerCoins = 0;
-    updateCacheMarker(i, j);
+    const index = playerCoins.findIndex((coin) => coin.serial === serial);
+    if (index !== -1) {
+      const coin = playerCoins.splice(index, 1)[0];
+      cache.dropCoin(coin);
+      alert(
+        `Dropped coin ${coin.i}:${coin.j}#${serial}. Cache now has ${cache.coins.length} coins.`,
+      );
+      updateCacheMarker(i, j);
+      updateInventory();
+    } else {
+      alert("Coin not found in inventory.");
+    }
   } else {
-    alert("No cache to drop off coins here.");
+    alert("No cache found.");
   }
 }
 
@@ -142,6 +164,17 @@ function updateAllCacheMarkers() {
     const [i, j] = key.split(",").map(Number);
     updateCacheMarker(i, j);
   });
+}
+
+// Function to update the player's inventory display
+function updateInventory() {
+  const inventory = document.getElementById("inventory");
+  if (inventory) {
+    inventory.innerHTML = "<h2>Inventory</h2>";
+    playerCoins.forEach((coin) => {
+      inventory.innerHTML += `<div>${coin.i}:${coin.j}#${coin.serial}</div>`;
+    });
+  }
 }
 
 // Generate cache locations
@@ -173,5 +206,5 @@ document
   ?.addEventListener("click", () => movePlayer(0, PLAYER_MOVE_OFFSET));
 
 // Expose functions to the global scope for popup buttons
-(globalThis as unknown as Window).pickUpCoins = pickUpCoins;
-(globalThis as unknown as Window).dropOffCoins = dropOffCoins;
+(globalThis as unknown as GlobalThis).pickUpCoin = pickUpCoin;
+(globalThis as unknown as GlobalThis).dropCoin = dropCoin;
