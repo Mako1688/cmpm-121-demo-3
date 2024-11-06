@@ -177,34 +177,40 @@ function updateInventory() {
   }
 }
 
-// Generate cache locations
-const originCell = board.getCellForPoint(L.latLng(PLAYER_LAT, PLAYER_LNG));
-const { i: originI, j: originJ } = originCell;
+// Function to initialize the game
+function initializeGame() {
+  // Generate cache locations
+  const originCell = board.getCellForPoint(L.latLng(PLAYER_LAT, PLAYER_LNG));
+  const { i: originI, j: originJ } = originCell;
 
-for (let di = -TILE_VISIBILITY_RADIUS; di <= TILE_VISIBILITY_RADIUS; di++) {
-  for (let dj = -TILE_VISIBILITY_RADIUS; dj <= TILE_VISIBILITY_RADIUS; dj++) {
-    const i = originI + di;
-    const j = originJ + dj;
-    if (luck([i, j].toString()) < CACHE_PROBABILITY) {
-      spawnCache(i, j);
+  for (let di = -TILE_VISIBILITY_RADIUS; di <= TILE_VISIBILITY_RADIUS; di++) {
+    for (let dj = -TILE_VISIBILITY_RADIUS; dj <= TILE_VISIBILITY_RADIUS; dj++) {
+      const i = originI + di;
+      const j = originJ + dj;
+      if (luck([i, j].toString()) < CACHE_PROBABILITY) {
+        spawnCache(i, j);
+      }
     }
   }
+
+  // Bind control buttons to functions
+  document
+    .getElementById("move-up")
+    ?.addEventListener("click", () => movePlayer(PLAYER_MOVE_OFFSET, 0));
+  document
+    .getElementById("move-down")
+    ?.addEventListener("click", () => movePlayer(-PLAYER_MOVE_OFFSET, 0));
+  document
+    .getElementById("move-left")
+    ?.addEventListener("click", () => movePlayer(0, -PLAYER_MOVE_OFFSET));
+  document
+    .getElementById("move-right")
+    ?.addEventListener("click", () => movePlayer(0, PLAYER_MOVE_OFFSET));
+
+  // Expose functions to the global scope for popup buttons
+  (globalThis as unknown as GlobalThis).pickUpCoin = pickUpCoin;
+  (globalThis as unknown as GlobalThis).dropCoin = dropCoin;
 }
 
-// Bind control buttons to functions
-document
-  .getElementById("move-up")
-  ?.addEventListener("click", () => movePlayer(PLAYER_MOVE_OFFSET, 0));
-document
-  .getElementById("move-down")
-  ?.addEventListener("click", () => movePlayer(-PLAYER_MOVE_OFFSET, 0));
-document
-  .getElementById("move-left")
-  ?.addEventListener("click", () => movePlayer(0, -PLAYER_MOVE_OFFSET));
-document
-  .getElementById("move-right")
-  ?.addEventListener("click", () => movePlayer(0, PLAYER_MOVE_OFFSET));
-
-// Expose functions to the global scope for popup buttons
-(globalThis as unknown as GlobalThis).pickUpCoin = pickUpCoin;
-(globalThis as unknown as GlobalThis).dropCoin = dropCoin;
+// Initialize the game
+initializeGame();
