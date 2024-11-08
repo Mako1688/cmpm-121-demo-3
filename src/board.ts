@@ -1,4 +1,5 @@
 import leaflet from "leaflet";
+import { Geocache } from "./geocache.ts";
 
 interface Cell {
   readonly i: number;
@@ -9,11 +10,13 @@ export class Board {
   readonly tileWidth: number;
   readonly tileVisibilityRadius: number;
   private readonly knownCells: Map<string, Cell>;
+  private readonly caches: Map<string, Geocache>;
 
   constructor(tileWidth: number, tileVisibilityRadius: number) {
     this.tileWidth = tileWidth;
     this.tileVisibilityRadius = tileVisibilityRadius;
     this.knownCells = new Map<string, Cell>();
+    this.caches = new Map<string, Geocache>();
   }
 
   private getCanonicalCell(cell: Cell): Cell {
@@ -61,5 +64,26 @@ export class Board {
     }
 
     return resultCells;
+  }
+
+  getCache(i: number, j: number): Geocache | null {
+    const key = `${i},${j}`;
+    return this.caches.get(key) || null;
+  }
+
+  setCache(i: number, j: number, cache: Geocache): void {
+    const key = `${i},${j}`;
+    this.caches.set(key, cache);
+  }
+
+  getCacheMomento(i: number, j: number): string | null {
+    const cache = this.getCache(i, j);
+    return cache ? cache.toMomento() : null;
+  }
+
+  setCacheFromMomento(i: number, j: number, momento: string): void {
+    const cache = new Geocache(i, j);
+    cache.fromMomento(momento);
+    this.setCache(i, j, cache);
   }
 }

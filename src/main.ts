@@ -27,7 +27,7 @@ const TILE_WIDTH = 0.0001;
 const TILE_VISIBILITY_RADIUS = 8;
 const CACHE_PROBABILITY = 0.1;
 const COIN_SCALE_FACTOR = 11;
-const PLAYER_MOVE_OFFSET = 0.00005;
+const PLAYER_MOVE_OFFSET = 0.0001;
 
 // Initialize the map
 const map = L.map("map").setView([PLAYER_LAT, PLAYER_LNG], MAP_ZOOM_LEVEL);
@@ -46,8 +46,8 @@ const playerMarker = L.marker([PLAYER_LAT, PLAYER_LNG])
 
 const playerPosition = { lat: PLAYER_LAT, lng: PLAYER_LNG };
 const playerCoins: Coin[] = [];
-const caches: Map<string, Geocache> = new Map();
 const cacheMarkers: Map<string, L.Marker> = new Map();
+const cacheRectangles: Map<string, L.Rectangle> = new Map();
 
 // Function to spawn a cache
 function spawnCache(i: number, j: number): void {
@@ -57,12 +57,15 @@ function spawnCache(i: number, j: number): void {
     `Cache at (${i}, ${j}) with luck value ${luckValue} has ${numCoins} coins`,
   );
   const cache = new Geocache(i, j, numCoins);
+  board.setCache(i, j, cache);
   const bounds = board.getCellBounds({ i, j });
   const center = bounds.getCenter();
   const marker = L.marker(center).addTo(map).bindPopup(getPopupContent(i, j));
-  L.rectangle(bounds, { color: "#ff7800", weight: 1 }).addTo(map);
-  caches.set(`${i},${j}`, cache);
+  const rectangle = L.rectangle(bounds, { color: "#ff7800", weight: 1 }).addTo(
+    map,
+  );
   cacheMarkers.set(`${i},${j}`, marker);
+  cacheRectangles.set(`${i},${j}`, rectangle);
   marker.on("click", () => {
     marker.setPopupContent(getPopupContent(i, j));
   });
@@ -70,7 +73,7 @@ function spawnCache(i: number, j: number): void {
 
 // Function to get popup content
 function getPopupContent(i: number, j: number): string {
-  const cache = caches.get(`${i},${j}`);
+  const cache = board.getCache(i, j);
   let content = `Cache at (${i}, ${j}) with ${
     cache?.coins.length ?? 0
   } coins<br>`;
@@ -106,12 +109,12 @@ function movePlayer(latOffset: number, lngOffset: number) {
   playerPosition.lng += lngOffset;
   playerMarker.setLatLng([playerPosition.lat, playerPosition.lng]);
   map.setView([playerPosition.lat, playerPosition.lng]);
-  updateAllCacheMarkers();
+  updateVisibleCaches();
 }
 
 // Function to pick up a coin
 function pickUpCoin(i: number, j: number, serial: number) {
-  const cache = caches.get(`${i},${j}`);
+  const cache = board.getCache(i, j);
   if (cache) {
     const coin = cache.pickUpCoin(serial);
     if (coin) {
@@ -131,7 +134,7 @@ function pickUpCoin(i: number, j: number, serial: number) {
 
 // Function to drop a coin
 function dropCoin(i: number, j: number, serial: number) {
-  const cache = caches.get(`${i},${j}`);
+  const cache = board.getCache(i, j);
   if (cache) {
     const index = playerCoins.findIndex((coin) => coin.serial === serial);
     if (index !== -1) {
@@ -159,8 +162,8 @@ function updateCacheMarker(i: number, j: number) {
 }
 
 // Function to update all cache markers
-function updateAllCacheMarkers() {
-  caches.forEach((_, key) => {
+function _updateAllCacheMarkers() {
+  cacheMarkers.forEach((_, key) => {
     const [i, j] = key.split(",").map(Number);
     updateCacheMarker(i, j);
   });
@@ -177,21 +180,54 @@ function updateInventory() {
   }
 }
 
-// Function to initialize the game
-function initializeGame() {
-  // Generate cache locations
-  const originCell = board.getCellForPoint(L.latLng(PLAYER_LAT, PLAYER_LNG));
-  const { i: originI, j: originJ } = originCell;
+// Function to update visible caches based on player's position
+function updateVisibleCaches() {
+  const visibleCells = board.getCellsNearPoint(
+    L.latLng(playerPosition.lat, playerPosition.lng),
+  );
+  const visibleCellKeys = new Set(
+    visibleCells.map((cell) => `${cell.i},${cell.j}`),
+  );
 
-  for (let di = -TILE_VISIBILITY_RADIUS; di <= TILE_VISIBILITY_RADIUS; di++) {
-    for (let dj = -TILE_VISIBILITY_RADIUS; dj <= TILE_VISIBILITY_RADIUS; dj++) {
-      const i = originI + di;
-      const j = originJ + dj;
-      if (luck([i, j].toString()) < CACHE_PROBABILITY) {
+  // Add new visible caches
+  visibleCells.forEach((cell) => {
+    const { i, j } = cell;
+    if (!cacheMarkers.has(`${i},${j}`)) {
+      const momento = board.getCacheMomento(i, j);
+      if (momento) {
+        board.setCacheFromMomento(i, j, momento);
+      } else if (luck([i, j].toString()) < CACHE_PROBABILITY) {
         spawnCache(i, j);
       }
     }
-  }
+  });
+
+  // Remove caches that are out of range
+  cacheMarkers.forEach((_, key) => {
+    if (!visibleCellKeys.has(key)) {
+      const [i, j] = key.split(",").map(Number);
+      const momento = board.getCacheMomento(i, j);
+      if (momento) {
+        board.setCacheFromMomento(i, j, momento);
+      }
+      const marker = cacheMarkers.get(key);
+      const rectangle = cacheRectangles.get(key);
+      if (marker) {
+        map.removeLayer(marker);
+        cacheMarkers.delete(key);
+      }
+      if (rectangle) {
+        map.removeLayer(rectangle);
+        cacheRectangles.delete(key);
+      }
+    }
+  });
+}
+
+// Function to initialize the game
+function initializeGame() {
+  // Generate initial cache locations
+  updateVisibleCaches();
 
   // Bind control buttons to functions
   document
