@@ -27,7 +27,7 @@ const TILE_WIDTH = 0.0001;
 const TILE_VISIBILITY_RADIUS = 8;
 const CACHE_PROBABILITY = 0.1;
 const COIN_SCALE_FACTOR = 11;
-const PLAYER_MOVE_OFFSET = 0.0001;
+const PLAYER_MOVE_OFFSET = 0.00005;
 
 // Initialize the map
 const map = L.map("map").setView([PLAYER_LAT, PLAYER_LNG], MAP_ZOOM_LEVEL);
