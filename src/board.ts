@@ -86,4 +86,12 @@ export class Board {
     cache.fromMomento(momento);
     this.setCache(i, j, cache);
   }
+
+  getAllCaches(): Map<string, Geocache> {
+    return this.caches;
+  }
+
+  clearCaches(): void {
+    this.caches.clear();
+  }
 }

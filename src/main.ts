@@ -28,6 +28,7 @@ const TILE_VISIBILITY_RADIUS = 8;
 const CACHE_PROBABILITY = 0.1;
 const COIN_SCALE_FACTOR = 11;
 const PLAYER_MOVE_OFFSET = 0.00005;
+const STORAGE_KEY = "geocoin-carrier-state";
 
 // Initialize the map
 const map = L.map("map").setView([PLAYER_LAT, PLAYER_LNG], MAP_ZOOM_LEVEL);
@@ -46,8 +47,11 @@ const playerMarker = L.marker([PLAYER_LAT, PLAYER_LNG])
 
 const playerPosition = { lat: PLAYER_LAT, lng: PLAYER_LNG };
 const playerCoins: Coin[] = [];
+const playerPath: L.LatLng[] = [];
 const cacheMarkers: Map<string, L.Marker> = new Map();
 const cacheRectangles: Map<string, L.Rectangle> = new Map();
+let geolocationWatchId: number | null = null;
+let playerPolyline: L.Polyline | null = null;
 
 // Function to spawn a cache
 function spawnCache(i: number, j: number): void {
@@ -109,7 +113,18 @@ function movePlayer(latOffset: number, lngOffset: number) {
   playerPosition.lng += lngOffset;
   playerMarker.setLatLng([playerPosition.lat, playerPosition.lng]);
   map.setView([playerPosition.lat, playerPosition.lng]);
+  playerPath.push(L.latLng(playerPosition.lat, playerPosition.lng));
   updateVisibleCaches();
+  updatePlayerPath();
+  saveGameState();
+}
+
+// Function to update the player's path
+function updatePlayerPath() {
+  if (playerPolyline) {
+    map.removeLayer(playerPolyline);
+  }
+  playerPolyline = L.polyline(playerPath, { color: "blue" }).addTo(map);
 }
 
 // Function to pick up a coin
@@ -124,6 +139,7 @@ function pickUpCoin(i: number, j: number, serial: number) {
       );
       updateCacheMarker(i, j);
       updateInventory();
+      saveGameState();
     } else {
       alert("Coin not found.");
     }
@@ -145,6 +161,7 @@ function dropCoin(i: number, j: number, serial: number) {
       );
       updateCacheMarker(i, j);
       updateInventory();
+      saveGameState();
     } else {
       alert("Coin not found in inventory.");
     }
@@ -196,6 +213,20 @@ function updateVisibleCaches() {
       const momento = board.getCacheMomento(i, j);
       if (momento) {
         board.setCacheFromMomento(i, j, momento);
+        const bounds = board.getCellBounds({ i, j });
+        const center = bounds.getCenter();
+        const marker = L.marker(center)
+          .addTo(map)
+          .bindPopup(getPopupContent(i, j));
+        const rectangle = L.rectangle(bounds, {
+          color: "#ff7800",
+          weight: 1,
+        }).addTo(map);
+        cacheMarkers.set(`${i},${j}`, marker);
+        cacheRectangles.set(`${i},${j}`, rectangle);
+        marker.on("click", () => {
+          marker.setPopupContent(getPopupContent(i, j));
+        });
       } else if (luck([i, j].toString()) < CACHE_PROBABILITY) {
         spawnCache(i, j);
       }
@@ -224,8 +255,121 @@ function updateVisibleCaches() {
   });
 }
 
+// Function to save the game state to localStorage
+function saveGameState() {
+  const state = {
+    playerPosition,
+    playerCoins,
+    playerPath,
+    caches: Array.from(board.getAllCaches().entries()).map(([key, cache]) => ({
+      key,
+      momento: cache.toMomento(),
+    })),
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+// Function to load the game state from localStorage
+function loadGameState() {
+  const state = localStorage.getItem(STORAGE_KEY);
+  if (state) {
+    const {
+      playerPosition: savedPosition,
+      playerCoins: savedCoins,
+      playerPath: savedPath,
+      caches,
+    } = JSON.parse(state);
+    playerPosition.lat = savedPosition.lat;
+    playerPosition.lng = savedPosition.lng;
+    playerCoins.push(...savedCoins);
+    playerPath.push(...savedPath);
+    caches.forEach(({ key, momento }: { key: string; momento: string }) => {
+      const [i, j] = key.split(",").map(Number);
+      board.setCacheFromMomento(i, j, momento);
+      const bounds = board.getCellBounds({ i, j });
+      const center = bounds.getCenter();
+      const marker = L.marker(center)
+        .addTo(map)
+        .bindPopup(getPopupContent(i, j));
+      const rectangle = L.rectangle(bounds, {
+        color: "#ff7800",
+        weight: 1,
+      }).addTo(map);
+      cacheMarkers.set(`${i},${j}`, marker);
+      cacheRectangles.set(`${i},${j}`, rectangle);
+      marker.on("click", () => {
+        marker.setPopupContent(getPopupContent(i, j));
+      });
+    });
+    playerMarker.setLatLng([playerPosition.lat, playerPosition.lng]);
+    map.setView([playerPosition.lat, playerPosition.lng]);
+    updateInventory();
+    updatePlayerPath();
+  }
+}
+
+// Function to enable geolocation
+function enableGeolocation() {
+  if (navigator.geolocation) {
+    geolocationWatchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        movePlayer(
+          latitude - playerPosition.lat,
+          longitude - playerPosition.lng,
+        );
+      },
+      (error) => {
+        console.error("Geolocation error:", error);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 5000,
+      },
+    );
+  } else {
+    alert("Geolocation is not supported by this browser.");
+  }
+}
+
+// Function to disable geolocation
+function _disableGeolocation() {
+  if (geolocationWatchId !== null) {
+    navigator.geolocation.clearWatch(geolocationWatchId);
+    geolocationWatchId = null;
+  }
+}
+
+// Function to reset the game state
+function resetGameState() {
+  if (confirm("Are you sure you want to reset the game state?")) {
+    playerPosition.lat = PLAYER_LAT;
+    playerPosition.lng = PLAYER_LNG;
+    playerCoins.length = 0;
+    playerPath.length = 0;
+    board.clearCaches();
+    cacheMarkers.forEach((marker) => map.removeLayer(marker));
+    cacheMarkers.clear();
+    cacheRectangles.forEach((rectangle) => map.removeLayer(rectangle));
+    cacheRectangles.clear();
+    if (playerPolyline) {
+      map.removeLayer(playerPolyline);
+      playerPolyline = null;
+    }
+    playerMarker.setLatLng([PLAYER_LAT, PLAYER_LNG]);
+    map.setView([PLAYER_LAT, PLAYER_LNG]);
+    updateInventory();
+    updateVisibleCaches();
+    saveGameState();
+  }
+}
+
 // Function to initialize the game
 function initializeGame() {
+  // Load game state from localStorage
+  loadGameState();
+
   // Generate initial cache locations
   updateVisibleCaches();
 
@@ -242,6 +386,10 @@ function initializeGame() {
   document
     .getElementById("move-right")
     ?.addEventListener("click", () => movePlayer(0, PLAYER_MOVE_OFFSET));
+  document
+    .getElementById("geolocation")
+    ?.addEventListener("click", enableGeolocation);
+  document.getElementById("reset")?.addEventListener("click", resetGameState);
 
   // Expose functions to the global scope for popup buttons
   (globalThis as unknown as GlobalThis).pickUpCoin = pickUpCoin;
