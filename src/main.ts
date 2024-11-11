@@ -3,12 +3,14 @@ declare global {
   interface Window {
     pickUpCoin: (i: number, j: number, serial: number) => void;
     dropCoin: (i: number, j: number, serial: number) => void;
+    centerMapOnCache: (i: number, j: number) => void;
   }
 }
 
 interface GlobalThis {
   pickUpCoin: (i: number, j: number, serial: number) => void;
   dropCoin: (i: number, j: number, serial: number) => void;
+  centerMapOnCache: (i: number, j: number) => void;
 }
 
 // Marco Ogaz-Vega
@@ -95,6 +97,13 @@ function getPopupContent(i: number, j: number): string {
   }
   console.log(`Popup content for cache at (${i}, ${j}): ${content}`);
   return content;
+}
+
+// Function to center the map on a cache
+function centerMapOnCache(i: number, j: number) {
+  const bounds = board.getCellBounds({ i, j });
+  const center = bounds.getCenter();
+  map.setView(center, MAP_ZOOM_LEVEL);
 }
 
 // Function to check if player is at cache location
@@ -192,7 +201,8 @@ function updateInventory() {
   if (inventory) {
     inventory.innerHTML = "<h2>Inventory</h2>";
     playerCoins.forEach((coin) => {
-      inventory.innerHTML += `<div>${coin.i}:${coin.j}#${coin.serial}</div>`;
+      inventory.innerHTML +=
+        `<div>${coin.i}:${coin.j}#${coin.serial} <button onclick="window.centerMapOnCache(${coin.i}, ${coin.j})">📍</button></div>`;
     });
   }
 }
@@ -394,6 +404,7 @@ function initializeGame() {
   // Expose functions to the global scope for popup buttons
   (globalThis as unknown as GlobalThis).pickUpCoin = pickUpCoin;
   (globalThis as unknown as GlobalThis).dropCoin = dropCoin;
+  (globalThis as unknown as GlobalThis).centerMapOnCache = centerMapOnCache;
 }
 
 // Initialize the game
