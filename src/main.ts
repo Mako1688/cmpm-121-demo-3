@@ -55,6 +55,22 @@ const cacheRectangles: Map<string, L.Rectangle> = new Map();
 let geolocationWatchId: number | null = null;
 let playerPolyline: L.Polyline | null = null;
 
+// Function to draw a coin on a canvas
+function drawCoin(coin: Coin): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = 50;
+  canvas.height = 50;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    // Draw coin background
+    ctx.fillStyle = `hsl(${(coin.i + coin.j + coin.serial) % 360}, 100%, 50%)`;
+    ctx.beginPath();
+    ctx.arc(25, 25, 20, 0, 2 * Math.PI);
+    ctx.fill();
+  }
+  return canvas;
+}
+
 // Function to spawn a cache
 function spawnCache(i: number, j: number): void {
   const luckValue = luck(`${i},${j}`);
@@ -201,8 +217,18 @@ function updateInventory() {
   if (inventory) {
     inventory.innerHTML = "<h2>Inventory</h2>";
     playerCoins.forEach((coin) => {
-      inventory.innerHTML +=
-        `<div>${coin.i}:${coin.j}#${coin.serial} <button onclick="window.centerMapOnCache(${coin.i}, ${coin.j})">📍</button></div>`;
+      const coinCanvas = drawCoin(coin);
+      const coinDiv = document.createElement("div");
+      coinDiv.appendChild(coinCanvas);
+      const coinName = document.createElement("span");
+      coinName.textContent = `${coin.i}:${coin.j}#${coin.serial}`;
+      coinDiv.appendChild(coinName);
+      const centerButton = document.createElement("button");
+      centerButton.innerHTML = "📍";
+      centerButton.onclick = () =>
+        (globalThis as unknown as GlobalThis).centerMapOnCache(coin.i, coin.j);
+      coinDiv.appendChild(centerButton);
+      inventory.appendChild(coinDiv);
     });
   }
 }
