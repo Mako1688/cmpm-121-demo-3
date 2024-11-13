@@ -1,3 +1,6 @@
 export default {
-  base: Deno.env.get("REPO_NAME") || "/project",
+  base: "/cmpm-121-demo-3/",
+  build: {
+    outDir: "dist",
+  },
 };
