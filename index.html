@@ -7,11 +7,12 @@
   <title>Geocoin Carrier</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
   <style>
-    /* Basic style for layout*/
+    /* Basic style for layout */
     #app {
       display: flex;
       flex-direction: column;
       align-items: center;
+      position: relative;
     }
 
     #map {
@@ -19,20 +20,69 @@
       height: 80vh;
     }
 
-    #controls {
-      display: flex;
-      gap: 10px;
-      margin-top: 10px;
+    .dropdown {
+      position: absolute;
+      z-index: 1000;
+      /* Ensure dropdowns are on top */
     }
 
-    #inventory {
+    .dropdown-content {
+      display: none;
       position: absolute;
-      top: 90px;
-      right: 10px;
-      padding: 10px;
-      border: 1px solid #ccc;
       background-color: #f9f9f9;
-      z-index: 1000;
+      min-width: 160px;
+      box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+      z-index: 1001;
+      /* Ensure dropdown content is on top */
+    }
+
+    .dropdown-content button {
+      color: black;
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: none;
+      background: none;
+    }
+
+    .dropdown-content button:hover {
+      background-color: #f1f1f1;
+    }
+
+    .dropdown:hover .dropdown-content {
+      display: block;
+    }
+
+    #inventory-dropdown {
+      top: 10px;
+      left: 10px;
+    }
+
+    #controls-dropdown {
+      top: 10px;
+      right: 10px;
+    }
+
+    @media (max-width: 600px) {
+      .dropdown-content {
+        min-width: 120px;
+      }
+
+      .dropdown-content button {
+        padding: 10px 12px;
+      }
+
+      #inventory-dropdown {
+        top: 5px;
+        left: 5px;
+      }
+
+      #controls-dropdown {
+        top: 5px;
+        right: 5px;
+      }
     }
   </style>
 </head>
@@ -41,16 +91,22 @@
   <div id="app">
     <h1>Geocoin Carrier</h1>
     <div id="map"></div>
-    <div id="inventory">
-      <h2>Inventory</h2>
+    <div id="inventory-dropdown" class="dropdown">
+      <button>Inventory</button>
+      <div id="inventory" class="dropdown-content">
+        <h2>Inventory</h2>
+      </div>
     </div>
-    <div id="controls">
-      <button id="move-up">⬆️</button>
-      <button id="move-down">⬇️</button>
-      <button id="move-left">⬅️</button>
-      <button id="move-right">➡️</button>
-      <button id="geolocation">🌐</button>
-      <button id="reset">🚮</button>
+    <div id="controls-dropdown" class="dropdown">
+      <button>Controls</button>
+      <div id="controls" class="dropdown-content">
+        <button id="move-up">⬆️</button>
+        <button id="move-down">⬇️</button>
+        <button id="move-left">⬅️</button>
+        <button id="move-right">➡️</button>
+        <button id="geolocation">🌐</button>
+        <button id="reset">🚮</button>
+      </div>
     </div>
   </div>
   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
