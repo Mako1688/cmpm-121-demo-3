@@ -71,15 +71,8 @@ function drawCoin(coin: Coin): HTMLCanvasElement {
   return canvas;
 }
 
-// Function to spawn a cache
-function spawnCache(i: number, j: number): void {
-  const luckValue = luck(`${i},${j}`);
-  const numCoins = Math.floor(Math.pow(luckValue, 0.5) * COIN_SCALE_FACTOR); // Apply power transformation and generate between 0 and 10 coins
-  console.log(
-    `Cache at (${i}, ${j}) with luck value ${luckValue} has ${numCoins} coins`,
-  );
-  const cache = new Geocache(i, j, numCoins);
-  board.setCache(i, j, cache);
+// Function to create a marker and rectangle for a cache
+function createCacheMarker(i: number, j: number) {
   const bounds = board.getCellBounds({ i, j });
   const center = bounds.getCenter();
   const marker = L.marker(center).addTo(map).bindPopup(getPopupContent(i, j));
@@ -91,6 +84,15 @@ function spawnCache(i: number, j: number): void {
   marker.on("click", () => {
     marker.setPopupContent(getPopupContent(i, j));
   });
+}
+
+// Function to spawn a cache
+function spawnCache(i: number, j: number): void {
+  const luckValue = luck(`${i},${j}`);
+  const numCoins = Math.floor(Math.pow(luckValue, 0.5) * COIN_SCALE_FACTOR); // Apply power transformation and generate between 0 and 10 coins
+  const cache = new Geocache(i, j, numCoins);
+  board.setCache(i, j, cache);
+  createCacheMarker(i, j);
 }
 
 // Function to get popup content
@@ -111,7 +113,10 @@ function getPopupContent(i: number, j: number): string {
         `<button onclick="window.dropCoin(${i}, ${j}, ${coin.serial})">Drop Coin ${coin.i}:${coin.j}#${coin.serial}</button><br>`;
     });
   }
-  console.log(`Popup content for cache at (${i}, ${j}): ${content}`);
+  if (cache) {
+    content +=
+      `<button onclick="window.centerMapOnCache(${i}, ${j})">Go to Cache ${i}:${j}</button><br>`;
+  }
   return content;
 }
 
@@ -125,11 +130,7 @@ function centerMapOnCache(i: number, j: number) {
 // Function to check if player is at cache location
 function isPlayerAtCache(i: number, j: number): boolean {
   const bounds = board.getCellBounds({ i, j });
-  const isAtCache = bounds.contains(
-    L.latLng(playerPosition.lat, playerPosition.lng),
-  );
-  console.log(`Player at cache (${i}, ${j}): ${isAtCache}`);
-  return isAtCache;
+  return bounds.contains(L.latLng(playerPosition.lat, playerPosition.lng));
 }
 
 // Function to move the player
@@ -249,20 +250,7 @@ function updateVisibleCaches() {
       const momento = board.getCacheMomento(i, j);
       if (momento) {
         board.setCacheFromMomento(i, j, momento);
-        const bounds = board.getCellBounds({ i, j });
-        const center = bounds.getCenter();
-        const marker = L.marker(center)
-          .addTo(map)
-          .bindPopup(getPopupContent(i, j));
-        const rectangle = L.rectangle(bounds, {
-          color: "#ff7800",
-          weight: 1,
-        }).addTo(map);
-        cacheMarkers.set(`${i},${j}`, marker);
-        cacheRectangles.set(`${i},${j}`, rectangle);
-        marker.on("click", () => {
-          marker.setPopupContent(getPopupContent(i, j));
-        });
+        createCacheMarker(i, j);
       } else if (luck([i, j].toString()) < CACHE_PROBABILITY) {
         spawnCache(i, j);
       }
@@ -322,20 +310,7 @@ function loadGameState() {
     caches.forEach(({ key, momento }: { key: string; momento: string }) => {
       const [i, j] = key.split(",").map(Number);
       board.setCacheFromMomento(i, j, momento);
-      const bounds = board.getCellBounds({ i, j });
-      const center = bounds.getCenter();
-      const marker = L.marker(center)
-        .addTo(map)
-        .bindPopup(getPopupContent(i, j));
-      const rectangle = L.rectangle(bounds, {
-        color: "#ff7800",
-        weight: 1,
-      }).addTo(map);
-      cacheMarkers.set(`${i},${j}`, marker);
-      cacheRectangles.set(`${i},${j}`, rectangle);
-      marker.on("click", () => {
-        marker.setPopupContent(getPopupContent(i, j));
-      });
+      createCacheMarker(i, j);
     });
     playerMarker.setLatLng([playerPosition.lat, playerPosition.lng]);
     map.setView([playerPosition.lat, playerPosition.lng]);
