@@ -73,6 +73,7 @@ export class GameController {
         this.playerCoins.push(coin);
         this.updateInventory();
         this.updateCacheMarker(i, j);
+        this.saveGameState();
       }
     }
   }
@@ -88,6 +89,7 @@ export class GameController {
         cache.dropCoin(coin);
         this.updateInventory();
         this.updateCacheMarker(i, j);
+        this.saveGameState();
       }
     }
   }
