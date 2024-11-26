@@ -19,6 +19,7 @@ interface GlobalThis {
 import L from "leaflet";
 import { Board } from "./board.ts";
 import { GameController } from "./gameController.ts";
+import { InventoryView } from "./inventoryView.ts";
 
 // Constants
 const PLAYER_LAT = 36.9895;
@@ -38,8 +39,11 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 
 const board = new Board(TILE_WIDTH, TILE_VISIBILITY_RADIUS);
 
+// Initialize the InventoryView
+const inventoryView = new InventoryView("inventory");
+
 // Initialize an instance of the GameController
-const gameController = new GameController(board, map);
+const gameController = new GameController(board, map, inventoryView);
 
 // Function to initialize the game
 function initializeGame() {
@@ -77,10 +81,9 @@ function initializeGame() {
   document
     .getElementById("geolocation")
     ?.addEventListener("click", () => gameController.enableGeolocation());
-  document.getElementById("reset")?.addEventListener(
-    "click",
-    () => gameController.resetGameState(),
-  );
+  document
+    .getElementById("reset")
+    ?.addEventListener("click", () => gameController.resetGameState());
 
   // Expose functions to the global scope for popup buttons
   (globalThis as unknown as GlobalThis).pickUpCoin = gameController.pickUpCoin

@@ -2,6 +2,7 @@ import { Board } from "./board.ts";
 import * as L from "leaflet";
 import luck from "./luck.ts";
 import { Geocache } from "./geocache.ts";
+import { InventoryView } from "./inventoryView.ts";
 
 // Constants
 const PLAYER_LAT = 36.9895;
@@ -11,7 +12,7 @@ const CACHE_PROBABILITY = 0.1;
 const COIN_SCALE_FACTOR = 11;
 const STORAGE_KEY = "geocoin-carrier-state";
 
-interface Coin {
+export interface Coin {
   i: number;
   j: number;
   serial: number;
@@ -28,8 +29,9 @@ export class GameController {
   private playerPolyline: L.Polyline | null;
   private geolocationWatchId: number | null;
   private playerMarker: L.Marker;
+  private inventoryView: InventoryView;
 
-  constructor(board: Board, map: L.Map) {
+  constructor(board: Board, map: L.Map, inventoryView: InventoryView) {
     this.board = board;
     this.map = map;
     this.playerPosition = { lat: PLAYER_LAT, lng: PLAYER_LNG };
@@ -39,8 +41,10 @@ export class GameController {
     this.cacheRectangles = new Map();
     this.playerPolyline = null;
     this.geolocationWatchId = null;
-    this.playerMarker = L.marker([PLAYER_LAT, PLAYER_LNG]).addTo(this.map)
+    this.playerMarker = L.marker([PLAYER_LAT, PLAYER_LNG])
+      .addTo(this.map)
       .bindPopup("Player");
+    this.inventoryView = inventoryView;
   }
 
   setPlayerPosition(lat: number, lng: number) {
@@ -76,8 +80,8 @@ export class GameController {
   dropCoin(i: number, j: number, serial: number) {
     const cache = this.board.getCache(i, j);
     if (cache) {
-      const index = this.playerCoins.findIndex((coin) =>
-        coin.serial === serial
+      const index = this.playerCoins.findIndex(
+        (coin) => coin.serial === serial,
       );
       if (index !== -1) {
         const [coin] = this.playerCoins.splice(index, 1);
@@ -94,31 +98,16 @@ export class GameController {
     this.map.setView(center, MAP_ZOOM_LEVEL);
   }
 
-  drawCoin(coin: Coin): HTMLCanvasElement {
-    const canvas = document.createElement("canvas");
-    canvas.width = 50;
-    canvas.height = 50;
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      // Draw coin background
-      ctx.fillStyle = `hsl(${
-        (coin.i + coin.j + coin.serial) % 360
-      }, 100%, 50%)`;
-      ctx.beginPath();
-      ctx.arc(25, 25, 20, 0, 2 * Math.PI);
-      ctx.fill();
-    }
-    return canvas;
-  }
-
   createCacheMarker(i: number, j: number) {
     const bounds = this.board.getCellBounds({ i, j });
     const center = bounds.getCenter();
-    const marker = L.marker(center).addTo(this.map).bindPopup(
-      this.getPopupContent(i, j),
-    );
-    const rectangle = L.rectangle(bounds, { color: "#ff7800", weight: 1 })
-      .addTo(this.map);
+    const marker = L.marker(center)
+      .addTo(this.map)
+      .bindPopup(this.getPopupContent(i, j));
+    const rectangle = L.rectangle(bounds, {
+      color: "#ff7800",
+      weight: 1,
+    }).addTo(this.map);
     this.cacheMarkers.set(`${i},${j}`, marker);
     this.cacheRectangles.set(`${i},${j}`, rectangle);
     marker.on("click", () => {
@@ -195,23 +184,10 @@ export class GameController {
   }
 
   updateInventory() {
-    const inventory = document.getElementById("inventory");
-    if (inventory) {
-      inventory.innerHTML = "<h2>Inventory</h2>";
-      this.playerCoins.forEach((coin) => {
-        const coinCanvas = this.drawCoin(coin);
-        const coinDiv = document.createElement("div");
-        coinDiv.appendChild(coinCanvas);
-        const coinName = document.createElement("span");
-        coinName.textContent = `${coin.i}:${coin.j}#${coin.serial}`;
-        coinDiv.appendChild(coinName);
-        const centerButton = document.createElement("button");
-        centerButton.innerHTML = "📍";
-        centerButton.onclick = () => this.centerMapOnCache(coin.i, coin.j);
-        coinDiv.appendChild(centerButton);
-        inventory.appendChild(coinDiv);
-      });
-    }
+    this.inventoryView.updateInventory(
+      this.playerCoins,
+      this.centerMapOnCache.bind(this),
+    );
   }
 
   updateVisibleCaches() {
@@ -261,12 +237,12 @@ export class GameController {
       playerPosition: this.playerPosition,
       playerCoins: this.playerCoins,
       playerPath: this.playerPath,
-      caches: Array.from(this.board.getAllCaches().entries()).map((
-        [key, cache],
-      ) => ({
-        key,
-        momento: cache.toMomento(),
-      })),
+      caches: Array.from(this.board.getAllCaches().entries()).map(
+        ([key, cache]) => ({
+          key,
+          momento: cache.toMomento(),
+        }),
+      ),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }
