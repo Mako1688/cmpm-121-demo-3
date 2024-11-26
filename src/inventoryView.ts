@@ -11,10 +11,7 @@ export class InventoryView {
     this.inventoryElement = element;
   }
 
-  updateInventory(
-    playerCoins: Coin[],
-    centerMapOnCache: (i: number, j: number) => void,
-  ) {
+  updateInventory(playerCoins: Coin[]) {
     this.inventoryElement.innerHTML = "<h2>Inventory</h2>";
     playerCoins.forEach((coin) => {
       const coinCanvas = this.drawCoin(coin);
@@ -25,7 +22,17 @@ export class InventoryView {
       coinDiv.appendChild(coinName);
       const centerButton = document.createElement("button");
       centerButton.innerHTML = "📍";
-      centerButton.onclick = () => centerMapOnCache(coin.i, coin.j);
+      centerButton.dataset.i = coin.i.toString();
+      centerButton.dataset.j = coin.j.toString();
+      centerButton.addEventListener("click", (event) => {
+        const target = event.target as HTMLButtonElement;
+        const i = parseInt(target.dataset.i!);
+        const j = parseInt(target.dataset.j!);
+        const customEvent = new CustomEvent("centerMapOnCache", {
+          detail: { i, j },
+        });
+        document.dispatchEvent(customEvent);
+      });
       coinDiv.appendChild(centerButton);
       this.inventoryElement.appendChild(coinDiv);
     });

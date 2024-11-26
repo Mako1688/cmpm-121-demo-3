@@ -1,18 +1,3 @@
-// Extend the Window interface to include our functions
-declare global {
-  interface Window {
-    pickUpCoin: (i: number, j: number, serial: number) => void;
-    dropCoin: (i: number, j: number, serial: number) => void;
-    centerMapOnCache: (i: number, j: number) => void;
-  }
-}
-
-interface GlobalThis {
-  pickUpCoin: (i: number, j: number, serial: number) => void;
-  dropCoin: (i: number, j: number, serial: number) => void;
-  centerMapOnCache: (i: number, j: number) => void;
-}
-
 // Marco Ogaz-Vega
 // CMPM 121
 
@@ -85,14 +70,34 @@ function initializeGame() {
     .getElementById("reset")
     ?.addEventListener("click", () => gameController.resetGameState());
 
-  // Expose functions to the global scope for popup buttons
-  (globalThis as unknown as GlobalThis).pickUpCoin = gameController.pickUpCoin
-    .bind(gameController);
-  (globalThis as unknown as GlobalThis).dropCoin = gameController.dropCoin.bind(
-    gameController,
-  );
-  (globalThis as unknown as GlobalThis).centerMapOnCache = gameController
-    .centerMapOnCache.bind(gameController);
+  // Event delegation for popup buttons
+  document.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement;
+    if (target.classList.contains("pick-up-coin")) {
+      const i = parseInt(target.dataset.i!);
+      const j = parseInt(target.dataset.j!);
+      const serial = parseInt(target.dataset.serial!);
+      const customEvent = new CustomEvent("pickUpCoin", {
+        detail: { i, j, serial },
+      });
+      document.dispatchEvent(customEvent);
+    } else if (target.classList.contains("drop-coin")) {
+      const i = parseInt(target.dataset.i!);
+      const j = parseInt(target.dataset.j!);
+      const serial = parseInt(target.dataset.serial!);
+      const customEvent = new CustomEvent("dropCoin", {
+        detail: { i, j, serial },
+      });
+      document.dispatchEvent(customEvent);
+    } else if (target.classList.contains("center-map-on-cache")) {
+      const i = parseInt(target.dataset.i!);
+      const j = parseInt(target.dataset.j!);
+      const customEvent = new CustomEvent("centerMapOnCache", {
+        detail: { i, j },
+      });
+      document.dispatchEvent(customEvent);
+    }
+  });
 }
 
 // Initialize the game

@@ -45,6 +45,22 @@ export class GameController {
       .addTo(this.map)
       .bindPopup("Player");
     this.inventoryView = inventoryView;
+
+    // Listen for custom events
+    document.addEventListener("pickUpCoin", (event) => {
+      const { i, j, serial } = (event as CustomEvent).detail;
+      this.pickUpCoin(i, j, serial);
+    });
+
+    document.addEventListener("dropCoin", (event) => {
+      const { i, j, serial } = (event as CustomEvent).detail;
+      this.dropCoin(i, j, serial);
+    });
+
+    document.addEventListener("centerMapOnCache", (event) => {
+      const { i, j } = (event as CustomEvent).detail;
+      this.centerMapOnCache(i, j);
+    });
   }
 
   setPlayerPosition(lat: number, lng: number) {
@@ -133,18 +149,18 @@ export class GameController {
     if (cache && cache.coins.length > 0 && this.isPlayerAtCache(i, j)) {
       cache.coins.forEach((coin) => {
         content +=
-          `<button onclick="window.pickUpCoin(${i}, ${j}, ${coin.serial})">Pick Up Coin ${coin.i}:${coin.j}#${coin.serial}</button><br>`;
+          `<button data-i="${i}" data-j="${j}" data-serial="${coin.serial}" class="pick-up-coin">Pick Up Coin ${coin.i}:${coin.j}#${coin.serial}</button><br>`;
       });
     }
     if (this.playerCoins.length > 0 && this.isPlayerAtCache(i, j)) {
       this.playerCoins.forEach((coin) => {
         content +=
-          `<button onclick="window.dropCoin(${i}, ${j}, ${coin.serial})">Drop Coin ${coin.i}:${coin.j}#${coin.serial}</button><br>`;
+          `<button data-i="${i}" data-j="${j}" data-serial="${coin.serial}" class="drop-coin">Drop Coin ${coin.i}:${coin.j}#${coin.serial}</button><br>`;
       });
     }
     if (cache) {
       content +=
-        `<button onclick="window.centerMapOnCache(${i}, ${j})">Go to Cache ${i}:${j}</button><br>`;
+        `<button data-i="${i}" data-j="${j}" class="center-map-on-cache">Go to Cache ${i}:${j}</button><br>`;
     }
     return content;
   }
@@ -186,10 +202,7 @@ export class GameController {
   }
 
   updateInventory() {
-    this.inventoryView.updateInventory(
-      this.playerCoins,
-      this.centerMapOnCache.bind(this),
-    );
+    this.inventoryView.updateInventory(this.playerCoins);
   }
 
   updateVisibleCaches() {
